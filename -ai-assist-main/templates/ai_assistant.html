@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Workspace</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@14.1.0/dist/markdown-it.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css" rel="stylesheet"/>
+
+    <style>
+        :root {
+            --bg-body: #f9fafb;
+            --bg-panel: #ffffff;
+            --border: #e5e7eb;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --accent: #2563eb;
+            --accent-hover: #1d4ed8;
+            --msg-user-bg: #f3f4f6;
+            --msg-ai-bg: #ffffff;
+        }
+
+        body.dark-mode {
+            --bg-body: #111827;
+            --bg-panel: #1f2937;
+            --border: #374151;
+            --text-main: #f9fafb;
+            --text-muted: #9ca3af;
+            --accent: #3b82f6;
+            --msg-user-bg: #374151;
+            --msg-ai-bg: #1f2937;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* --- LAYOUT --- */
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- SIDEBARS COMMON --- */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            border-left: 1px solid var(--border); /* For right sidebar */
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
+            overflow: hidden;
+            flex-shrink: 0;
+            z-index: 20;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            opacity: 0;
+            border: none;
+        }
+
+        .sidebar-header {
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border);
+            height: 60px;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        /* --- LEFT SIDEBAR (HISTORY) --- */
+        .new-chat-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background-color: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-main);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .new-chat-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .history-item {
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: background 0.2s;
+        }
+        .history-item:hover { background-color: var(--bg-body); color: var(--text-main); }
+
+        /* --- RIGHT SIDEBAR (PROFILE) --- */
+        .profile-card {
+            text-align: center;
+            padding: 1.5rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1rem;
+        }
+        .profile-avatar {
+            width: 64px; height: 64px;
+            background-color: var(--accent);
+            color: white;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            font-weight: 600;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1rem auto;
+        }
+        .credit-display {
+            background: var(--bg-body);
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .credit-amount {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--accent);
+            display: block;
+        }
+        .credit-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+        /* --- MAIN CHAT AREA --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            min-width: 0;
+            background-color: var(--bg-body);
+        }
+
+        .main-header {
+            height: 60px;
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .toggle-btn {
+            background: none; border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 0.4rem;
+            display: flex; align-items: center;
+        }
+        .toggle-btn:hover { background-color: var(--bg-body); color: var(--text-main); }
+
+        #chat-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            scroll-behavior: smooth;
+        }
+
+        .message {
+            display: flex;
+            gap: 1rem;
+            max-width: 800px;
+            margin: 0 auto;
+            width: 100%;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .message-content {
+            padding: 1rem 1.25rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            line-height: 1.6;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .message.user { justify-content: flex-end; }
+        .message.user .message-content {
+            background-color: var(--msg-user-bg);
+            color: var(--text-main);
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        .message.assistant .message-content {
+            background-color: var(--msg-ai-bg);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 0.25rem;
+            width: 100%;
+        }
+
+        /* Code Blocks */
+        pre {
+            background: #1e1e1e;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-x: auto;
+            color: #e0e0e0;
+            margin: 0.75rem 0;
+            border: 1px solid var(--border);
+        }
+
+        /* Input Area */
+        .input-container {
+            padding: 1.5rem;
+            background-color: var(--bg-panel);
+            border-top: 1px solid var(--border);
+        }
+        .input-box-wrapper {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background-color: var(--bg-body);
+            display: flex;
+            align-items: flex-end;
+            padding: 0.5rem;
+            transition: border-color 0.2s;
+        }
+        .input-box-wrapper:focus-within { border-color: var(--accent); }
+        
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            resize: none;
+            padding: 0.75rem;
+            max-height: 200px;
+            font-family: inherit;
+            font-size: 1rem;
+            color: var(--text-main);
+        }
+        textarea:focus { outline: none; }
+
+        .send-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: background 0.2s;
+        }
+        .send-btn:hover { background-color: var(--accent-hover); }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- PREVIEW PANE (Overlays Right Sidebar) --- */
+        .preview-pane {
+            display: none;
+            flex-direction: column;
+            border-left: 1px solid var(--border);
+            background: #fff;
+            width: 400px; /* Matches sidebar width roughly */
+            transition: all 0.3s;
+        }
+        .preview-pane.active { display: flex; flex: 1; } /* Expand to take space */
+        
+        .preview-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-panel);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        iframe { border: none; flex: 1; width: 100%; background: white; }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 1024px) {
+            .sidebar { position: absolute; height: 100%; z-index: 50; }
+            #left-sidebar { left: 0; transform: translateX(-100%); }
+            #left-sidebar.open { transform: translateX(0); width: 80%; }
+            
+            #right-sidebar { right: 0; transform: translateX(100%); border-left: 1px solid var(--border); }
+            #right-sidebar.open { transform: translateX(0); width: 80%; }
+            
+            .preview-pane.active { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 60; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <!-- LEFT SIDEBAR (HISTORY) -->
+    <aside id="left-sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <span class="font-bold text-lg">History</span>
+            <button class="toggle-btn lg:hidden" onclick="toggleLeftSidebar()"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="sidebar-content">
+            <button class="new-chat-btn" onclick="window.location.reload()">
+                <i class="ri-add-line"></i> New Chat
+            </button>
+            <div id="history-list" class="mt-4">
+                <!-- History Items Injected Here -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <!-- Top Navigation -->
+        <div class="main-header">
+            <div class="flex items-center gap-3">
+                <button class="toggle-btn" onclick="toggleLeftSidebar()" title="Toggle History">
+                    <i class="ri-side-bar-line"></i>
+                </button>
+                <span class="font-bold text-lg">Agency AI</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <button class="toggle-btn" onclick="toggleTheme()" title="Toggle Theme">
+                    <i class="ri-moon-line"></i>
+                </button>
+                <button class="toggle-btn" onclick="toggleRightSidebar()" title="Toggle Profile">
+                    <i class="ri-layout-right-line"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div id="chat-scroll">
+            <div class="message assistant">
+                <div class="message-content">
+                    <p><strong>Hello! I am your AI Agent.</strong></p>
+                    <p class="text-sm text-gray-500 mt-1">I can write code, search the web, and solve complex tasks.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-container">
+            <div class="input-box-wrapper">
+                <textarea id="user-input" rows="1" placeholder="Ask anything..."></textarea>
+                <button id="send-btn" class="send-btn">
+                    <i class="ri-arrow-up-line"></i>
+                </button>
+            </div>
+            <div class="text-center text-xs text-gray-400 mt-2">Powered by Groq & OpenAI</div>
+        </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR (PROFILE & CREDITS) -->
+    <aside id="right-sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <span class="font-bold">Profile</span>
+            <button class="toggle-btn lg:hidden" onclick="toggleRightSidebar()"><i class="ri-close-line"></i></button>
+        </div>
+        <div class="sidebar-content">
+            <div class="profile-card">
+                <div class="profile-avatar">
+                    {% if current_user and current_user.email %}{{ current_user.email[0]|upper }}{% else %}U{% endif %}
+                </div>
+                <div class="font-medium truncate">
+                    {% if current_user and current_user.email %}{{ current_user.email }}{% else %}Guest{% endif %}
+                </div>
+                <div class="text-xs text-gray-500">Free Plan</div>
+            </div>
+
+            <div class="credit-display">
+                <span class="credit-label">Available Credits</span>
+                <span class="credit-amount" id="credit-val">{{ user_credits }}</span>
+            </div>
+
+            <a href="/pricing" class="btn btn-primary w-full text-center block mb-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Get More Credits</a>
+            <a href="/logout" class="btn w-full text-center block border border-red-200 text-red-500 hover:bg-red-50 py-2 rounded">Logout</a>
+        </div>
+    </aside>
+
+    <!-- PREVIEW PANE (Replaces Right Sidebar when Active) -->
+    <div id="preview-pane" class="preview-pane">
+        <div class="preview-header">
+            <span class="font-semibold">Live Preview</span>
+            <div class="flex gap-2">
+                <button class="toggle-btn" onclick="refreshPreview()"><i class="ri-refresh-line"></i></button>
+                <button class="toggle-btn" onclick="closePreview()"><i class="ri-close-line"></i></button>
+            </div>
+        </div>
+        <iframe id="preview-frame"></iframe>
+    </div>
+
+</div>
+
+<script>
+    // --- ELEMENTS ---
+    const leftSidebar = document.getElementById('left-sidebar');
+    const rightSidebar = document.getElementById('right-sidebar');
+    const previewPane = document.getElementById('preview-pane');
+    const chatScroll = document.getElementById('chat-scroll');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const historyList = document.getElementById('history-list');
+    const previewFrame = document.getElementById('preview-frame');
+    let md;
+
+    // --- INIT ---
+    window.addEventListener('load', () => {
+        // Init Markdown
+        try {
+            md = window.markdownit({
+                html: true, linkify: true,
+                highlight: (str, lang) => {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try { return hljs.highlight(str, { language: lang }).value; } catch (__) {}
+                    }
+                    return '';
+                }
+            });
+        } catch(e) { console.error(e); }
+        
+        loadHistory();
+        
+        // Mobile: Check window width
+        if(window.innerWidth < 1024) {
+            leftSidebar.classList.add('collapsed'); // Hidden by default on mobile
+            rightSidebar.classList.add('collapsed');
+        }
+    });
+
+    // --- LAYOUT TOGGLES ---
+    function toggleLeftSidebar() {
+        leftSidebar.classList.toggle('collapsed');
+        // On mobile, 'collapsed' might mean hidden via transform, handled by CSS media queries usually
+        // But here we use width manipulation for desktop.
+        if (window.innerWidth < 1024) {
+            leftSidebar.classList.toggle('open'); // Use class for mobile transform
+        }
+    }
+
+    function toggleRightSidebar() {
+        if (previewPane.style.display === 'flex') {
+            closePreview(); // Close preview if open to show sidebar
+        }
+        
+        rightSidebar.classList.toggle('collapsed');
+        if (window.innerWidth < 1024) {
+            rightSidebar.classList.toggle('open');
+        }
+    }
+
+    function toggleTheme() {
+        document.body.classList.toggle('dark-mode');
+    }
+
+    // --- CHAT LOGIC ---
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // UI Updates
+        addMessage('user', text);
+        saveHistory(text);
+        userInput.value = '';
+        userInput.style.height = 'auto';
+
+        // Loading
+        const loadingId = addMessage('assistant', 'Thinking...', true);
+
+        try {
+            const response = await fetch('/api/ask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: text })
+            });
+            const data = await response.json();
+
+            const msgDiv = document.getElementById(loadingId);
+            if (msgDiv) {
+                // Render content
+                msgDiv.innerHTML = md ? md.render(data.answer) : data.answer;
+                // Highlight code
+                msgDiv.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                
+                // Check for preview
+                updatePreview(data.answer);
+
+                // Update credits
+                if(data.remaining) document.getElementById('credit-val').innerText = parseFloat(data.remaining).toFixed(2);
+            }
+        } catch (err) {
+            const msgDiv = document.getElementById(loadingId);
+            if(msgDiv) msgDiv.innerHTML = `<span style="color:red">Error: ${err.message}</span>`;
+        }
+        scrollToBottom();
+    }
+
+    function addMessage(role, text, isId=false) {
+        const div = document.createElement('div');
+        div.className = `message ${role}`;
+        const id = 'msg-' + Date.now();
+        
+        // Safe text for user
+        const content = role === 'user' ? text.replace(/</g, "&lt;") : text;
+
+        div.innerHTML = `<div class="message-content" id="${id}">${content}</div>`;
+        
+        chatScroll.appendChild(div);
+        scrollToBottom();
+        return id;
+    }
+
+    function scrollToBottom() {
+        setTimeout(() => chatScroll.scrollTop = chatScroll.scrollHeight, 50);
+    }
+
+    // --- PREVIEW LOGIC ---
+    let currentCode = "";
+    function updatePreview(text) {
+        const htmlMatch = text.match(/```html([\s\S]*?)```/i);
+        const cssMatch = text.match(/```css([\s\S]*?)```/i);
+        const jsMatch = text.match(/```(javascript|js)([\s\S]*?)```/i);
+
+        if (htmlMatch) {
+            // Open Preview, Hide Right Sidebar
+            rightSidebar.style.display = 'none'; 
+            previewPane.classList.add('active');
+            previewPane.style.display = 'flex';
+
+            const html = htmlMatch[1];
+            const css = cssMatch ? `<style>${cssMatch[1]}</style>` : '';
+            const js = jsMatch ? `<script>${jsMatch[2]}<\/script>` : '';
+            
+            currentCode = `<!DOCTYPE html><html><head>${css}</head><body>${html}${js}</body></html>`;
+            previewFrame.srcdoc = currentCode;
+        }
+    }
+
+    function closePreview() {
+        previewPane.style.display = 'none';
+        previewPane.classList.remove('active');
+        rightSidebar.style.display = 'flex'; // Show sidebar again
+        rightSidebar.classList.remove('collapsed'); // Ensure it pops back open
+    }
+
+    function refreshPreview() {
+        previewFrame.srcdoc = currentCode;
+    }
+
+    // --- HISTORY LOGIC ---
+    function saveHistory(prompt) {
+        let history = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+        if (history[0] !== prompt) {
+            history.unshift(prompt);
+            if(history.length > 15) history.pop();
+            localStorage.setItem('chatHistory', JSON.stringify(history));
+            loadHistory();
+        }
+    }
+
+    function loadHistory() {
+        let history = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+        historyList.innerHTML = '';
+        history.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.textContent = item;
+            div.onclick = () => { userInput.value = item; userInput.focus(); };
+            historyList.appendChild(div);
+        });
+    }
+
+    // --- INPUT HANDLING ---
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    userInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+    sendBtn.addEventListener('click', sendMessage);
+
+</script>
+</body>
+</html>
